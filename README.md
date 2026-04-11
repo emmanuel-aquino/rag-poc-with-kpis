@@ -21,7 +21,7 @@ Azure Blob Storage (markdown)
       ↓
 Azure AI Search (hybrid vector + keyword + semantic re-ranking)
       ↓
-Azure OpenAI gpt-4o-mini (answer generation)
+Azure OpenAI gpt-4.1-mini (answer generation)
       ↓
 Azure SQL Serverless (query logging + KPI extraction)
       ↓
