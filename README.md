@@ -37,7 +37,7 @@ Power BI (analytics dashboard)
 | Document parsing | Azure Document Intelligence (Layout model) |
 | Vector storage | Azure AI Search (hybrid search + semantic ranking) |
 | Embeddings | Azure OpenAI text-embedding-ada-002 |
-| Generation | Azure OpenAI gpt-4o-mini |
+| Generation | Azure OpenAI gpt-4.1-mini |
 | Analytics | Azure SQL Database (Serverless) |
 | Dashboard | Power BI |
 
