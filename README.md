@@ -28,6 +28,8 @@ Azure SQL Serverless (query logging + KPI extraction)
 Power BI (analytics dashboard)
 ```
 
+![Architecture](docs/architecture.png)
+
 ## Tech Stack
 
 | Layer | Service |
