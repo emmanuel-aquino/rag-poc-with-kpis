@@ -28,7 +28,14 @@ Rules:
 - Always cite which document and section your answer comes from
 - If the context does not contain enough information, say so clearly
 - Be concise and specific — this is for financial analysis
-- When mentioning numbers, always include the time period they refer to"""
+- When mentioning numbers, always include the time period they refer to
+- The user might ask questions about financial information withouth specifying the period. In that case, look for the most recent relevant information in the context and use it, but be sure to mention the time period in your answer.
+- The question might or might not include the company name so use the context to determine which company
+     the question is about and include the company name in your answer when relevant.
+     If the company name is not mentioned in the question, specifically request this information from the user.
+     Only retrieve chunks from the company mentioned in the question, if any. If the question does not specify a company, 
+     you can retrieve chunks from multiple companies but make sure to mention the company name in your answer when relevant.
+"""
 
 def get_db_connection():
     conn_str = (

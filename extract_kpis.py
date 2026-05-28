@@ -17,7 +17,19 @@ Return a JSON array. Each item must have:
 - company: company name
 - metric_name: e.g. "revenue", "gross_margin", "operating_expenses", "guidance"
 - metric_value: the numeric value or range as a string e.g. "94.9B", "45.2%"
-- period: time period e.g. "Q4 2024", "FY2024", "Q1 2025 guidance"
+  make sure to convert values to the same units across answers, some values might be in millions, others in billions, etc. 
+  If the answer includes a range, return it as is e.g. "between 90B and 100B", "94B-96B", etc.
+  if the answer mentions "billions" or "millions", conver them using the appropriate suffix, e.g. "94.9B" for 94.9 billions, "500M" for 500 millions, etc.
+- period: time period, use always the same format "FY2024Q1", "FY2025Q1", etc.
+- sources might include the period in the name so if you are unable to get it from the answer, try to infer it from the sources name.
+  For Amazon AMZN, the source document runs as the calendar year, so Q1 is Jan-Mar, Q2 is Apr-Jun, etc. 
+  For Microsoft MSFT, the source document runs as the fiscal year, so Q1 is Jul-Sep, Q2 is Oct-Dec, etc.
+  Make sure you make the distinction between calendar and fiscal year when inferring the period from the source document name, and be consistent in the format you return it in.
+
+
+- Infer the company name from the context and sources. Sources usually include the company name
+    or the company stock name (Amazon, AMZN, Microsoft, MSFT, etc). If you cannot determine the company name, return "unknown".
+- If the answer includes sources from multiple or unknown companies, ignore it and return an empty array, since we cannot attribute the KPIs to a specific company.
 
 Return only valid JSON, no explanation, no markdown.
 If no financial KPIs are present, return an empty array [].

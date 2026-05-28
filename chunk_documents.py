@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
@@ -9,19 +10,40 @@ blob_client = BlobServiceClient.from_connection_string(
     os.getenv("BLOB_CONNECTION_STRING")
 )
 
+def split_into_sections(text):
+    # remove page break markers — they don't carry semantic meaning
+    text = text.replace("<!-- PageBreak -->", "")
+    # prepend newline so a document starting with a heading is caught by the split
+    text = "\n" + text
+    # split on #, ##, ### headings
+    parts = re.split(r'\n(#{1,3} )', text)
+
+    sections = []
+    i = 1
+    # parts[0] is always preamble (content before the first heading, often empty)
+    # add it only if it has actual text, then always start the loop at i=1
+    if parts and parts[0].strip():
+        sections.append(("", parts[0]))
+    while i < len(parts) - 1:
+        heading_marker = parts[i]       # e.g. "# " or "## "
+        content = parts[i + 1]          # everything until next heading
+        lines = content.split("\n", 1)
+        heading_text = lines[0].strip()
+        body = lines[1] if len(lines) > 1 else ""
+        sections.append((f"{heading_marker.strip()} {heading_text}", body))
+        i += 2
+
+    return sections
+
 def chunk_markdown(text, source_doc, max_tokens=500):
     chunks = []
-    # split on ## headings — natural section boundaries in earnings transcripts
-    sections = text.split("\n## ")
+    sections = split_into_sections(text)
 
-    for i, section in enumerate(sections):
-        if not section.strip():
+    for i, (heading, body) in enumerate(sections):
+        heading = heading.strip("#").strip() or f"Section {i}"
+        body = body.strip()
+        if not body:
             continue
-
-        # extract section heading if present
-        lines = section.strip().split("\n")
-        heading = lines[0].strip("#").strip() if lines else f"Section {i}"
-        body = "\n".join(lines[1:]).strip()
 
         # if section is short enough, keep as one chunk
         words = body.split()

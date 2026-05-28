@@ -2,6 +2,7 @@ import os
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.core.credentials import AzureKeyCredential
 from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceNotFoundError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,42 +18,67 @@ blob_client = BlobServiceClient.from_connection_string(
 
 source_container = "transcripts"
 output_container = "extracted"
+archive_container = "archived"
 
-# create output container if it doesn't exist
-#blob_client.create_container(output_container)
+source = blob_client.get_container_client(source_container)
+extracted = blob_client.get_container_client(output_container)
+archive = blob_client.get_container_client(archive_container)
 
-# loop through every PDF in the source container
-container = blob_client.get_container_client(source_container)
+skipped = 0
+processed = 0
+errors = 0
 
-for blob in container.list_blobs():
-    print(f"Processing: {blob.name}")
+for blob in source.list_blobs():
+    pdf_name = blob.name
+    md_name = pdf_name.replace(".pdf", ".md")
 
-    # download the PDF as bytes
-    blob_data = container.get_blob_client(blob.name).download_blob().readall()
+    # check if markdown already exists in extracted container
+    md_blob = extracted.get_blob_client(md_name)
+    already_extracted = False
+    try:
+        md_blob.get_blob_properties()
+        already_extracted = True
+    except ResourceNotFoundError:
+        already_extracted = False
 
-    # send to Document Intelligence — Layout model, Markdown output
+    if already_extracted:
+        print(f"Skipping (already extracted): {pdf_name}")
+        # move PDF to archive
+        source_url = source.get_blob_client(pdf_name).url
+        archive.get_blob_client(pdf_name).start_copy_from_url(source_url)
+        source.get_blob_client(pdf_name).delete_blob()
+        print(f"  → Archived: {pdf_name}")
+        skipped += 1
+        continue
 
+    # not yet extracted — process it
+    print(f"Processing: {pdf_name}")
+    try:
+        blob_data = source.get_blob_client(pdf_name).download_blob().readall()
 
+        poller = doc_client.begin_analyze_document(
+            "prebuilt-layout",
+            body=blob_data,
+            content_type="application/pdf",
+            output_content_format="markdown"
+        )
+        result = poller.result()
 
-    # send to Document Intelligence — Layout model, Markdown output
-    poller = doc_client.begin_analyze_document(
-        "prebuilt-layout",
-        body=blob_data,
-        content_type="application/pdf",
-        output_content_format="markdown"
-    )
+        # upload markdown to extracted container
+        extracted.get_blob_client(md_name).upload_blob(result.content, overwrite=True)
+        print(f"  → Extracted: {md_name} ({len(result.content)} characters, {len(result.pages)} pages)")
 
-    result = poller.result()
+        # move PDF to archive on success
+        source_url = source.get_blob_client(pdf_name).url
+        archive.get_blob_client(pdf_name).start_copy_from_url(source_url)
+        source.get_blob_client(pdf_name).delete_blob()
+        print(f"  → Archived: {pdf_name}")
 
-    print(len(result.pages))
-    # save the Markdown to the output container
-    output_name = blob.name.replace(".pdf", ".md")
+        processed += 1
 
-    blob_client.get_blob_client(
-        container=output_container,
-        blob=output_name
-    ).upload_blob(result.content, overwrite=True)
+    except Exception as e:
+        print(f"  ERROR processing {pdf_name}: {e}")
+        errors += 1
+        # leave the PDF in transcripts so it can be retried
 
-    print(f"Saved: {output_name} ({len(result.content)} characters)")
-
-print("All done.")
+print(f"\nDone. Processed: {processed} | Skipped: {skipped} | Errors: {errors}")
